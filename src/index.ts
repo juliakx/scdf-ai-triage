@@ -195,7 +195,7 @@ export default {
         2. STRICTLY follow the "REQUIRED ACTIONS" above.
         3. If Urgency is 'AE', tell them to call 995 or go to A&E immediately.
         4. Mention the "PROHIBITED ACTIONS" if relevant (e.g., "Do not give food").
-        5. Be calm, concise, and professional.
+        5. Be calm, concise, and professional!
         `;
 
         const response = await ai.run('@cf/meta/llama-3.1-8b-instruct', {
