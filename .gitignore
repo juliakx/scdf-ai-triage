@@ -165,6 +165,3 @@ dist
 .env*
 !.env.example
 .wrangler/
-
-wrangler.jsonc
-worker-configuration.d.ts
