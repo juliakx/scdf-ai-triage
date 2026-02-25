@@ -12,44 +12,259 @@ const html = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCDF AI Triage Agent</title>
+  <title>SCDF Triage Assistant</title>
   <style>
-    body { font-family: -apple-system, sans-serif; background: #f4f4f9; display: flex; justify-content: center; height: 100vh; margin: 0; }
-    .chat-container { width: 100%; max-width: 600px; background: white; display: flex; flex-direction: column; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    .header { background: #d32f2f; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
-    .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .message { max-width: 80%; padding: 10px 15px; border-radius: 15px; line-height: 1.4; font-size: 0.95rem; white-space: pre-wrap; }
-    .message.user { align-self: flex-end; background: #007bff; color: white; border-bottom-right-radius: 2px; }
-    .message.bot { align-self: flex-start; background: #e9ecef; color: black; border-bottom-left-radius: 2px; }
-    .input-area { border-top: 1px solid #ddd; padding: 20px; display: flex; gap: 10px; background: #fff; }
-    input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 1rem; }
-    button { background: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; }
-    button:disabled { background: #ccc; }
-    .settings { padding: 10px; background: #eee; font-size: 0.8rem; display: flex; gap: 10px; justify-content: center; }
-    select, input.nric { padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+    :root {
+      color-scheme: light;
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --border: #dbe3ee;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #c62828;
+      --primary-soft: #eef3f9;
+      --user: #d32f2f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at top, #ffffff 0%, var(--bg) 55%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+      color: var(--text);
+    }
+
+    .chat-container {
+      width: min(100%, 760px);
+      height: min(92vh, 900px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+    }
+
+    .header {
+      background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+      color: var(--text);
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .header-title {
+      font-size: 1.02rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .header-subtitle {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .header-badge {
+      font-size: 0.72rem;
+      color: #7f1d1d;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 4px 8px;
+      white-space: nowrap;
+    }
+
+    .settings {
+      padding: 12px 20px;
+      background: var(--panel-soft);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .setting-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.01em;
+    }
+
+    select, input.nric {
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #cfd8e3;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+      font-size: 0.9rem;
+    }
+
+    select:focus, input.nric:focus, #userInput:focus {
+      border-color: #9db6d8;
+      box-shadow: 0 0 0 3px rgba(157, 182, 216, 0.25);
+    }
+
+    .messages {
+      flex: 1;
+      padding: 18px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #fbfcff;
+    }
+
+    .message {
+      max-width: 84%;
+      padding: 11px 14px;
+      border-radius: 14px;
+      line-height: 1.45;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      border: 1px solid transparent;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: var(--primary-soft);
+      color: var(--text);
+      border-color: #dfe8f4;
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.actions {
+      align-self: flex-start;
+      background: transparent;
+      padding: 0;
+      border: none;
+    }
+
+    .input-area {
+      border-top: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      gap: 10px;
+      background: var(--panel);
+    }
+
+    #userInput {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #cfd8e3;
+      border-radius: 12px;
+      outline: none;
+      font-size: 0.96rem;
+      background: #fff;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0 18px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.92rem;
+      min-width: 78px;
+    }
+
+    button:disabled {
+      background: #d1d5db;
+      color: #6b7280;
+      cursor: default;
+    }
+
+    .call995-btn {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #d5dde8;
+      padding: 6px 11px;
+      border-radius: 12px;
+      font-weight: 500;
+      font-size: 0.78rem;
+      line-height: 1;
+      min-width: auto;
+    }
+
+    .call995-btn:hover {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    @media (max-width: 680px) {
+      body { padding: 0; }
+      .chat-container {
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+      }
+      .settings { grid-template-columns: 1fr; }
+      .message { max-width: 90%; }
+    }
   </style>
 </head>
 <body>
 
 <div class="chat-container">
-  <div class="header">🚑 SCDF AI Triage Agent</div>
+  <div class="header">
+    <div>
+      <div class="header-title">SCDF Triage Assistant</div>
+      <div class="header-subtitle">Guidance for urgent and non-urgent symptoms</div>
+    </div>
+    <div class="header-badge">24/7 Guidance</div>
+  </div>
   
   <div class="settings">
-    <select id="language">
-      <option value="English">English</option>
-      <option value="Chinese">Chinese (中文)</option>
-      <option value="Malay">Malay (Bahasa)</option>
-      <option value="Tamil">Tamil (தமிழ்)</option>
-    </select>
-    <input type="text" id="nric" class="nric" placeholder="NRIC (Optional)">
+    <div class="setting-group">
+      <label class="setting-label" for="language">Language</label>
+      <select id="language">
+        <option value="English">English</option>
+        <option value="Chinese">Chinese (中文)</option>
+        <option value="Malay">Malay (Bahasa)</option>
+        <option value="Tamil">Tamil (தமிழ்)</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <label class="setting-label" for="nric">Patient NRIC (optional)</label>
+      <input type="text" id="nric" class="nric" placeholder="S1234567A">
+    </div>
   </div>
 
   <div class="messages" id="messages">
-    <div class="message bot">Hello! I am your triage assistant. Describe your symptoms or enter a Patient NRIC above.</div>
+    <div class="message bot">Hello, I’m here to help with triage guidance. Describe your symptoms, and include severity or duration if possible.</div>
   </div>
 
   <div class="input-area">
-    <input type="text" id="userInput" placeholder="Type your symptoms here..." onkeypress="handleEnter(event)">
+    <input type="text" id="userInput" placeholder="Describe symptoms (e.g. chest pain for 20 minutes)" onkeypress="handleEnter(event)">
     <button id="sendBtn" onclick="sendMessage()">Send</button>
   </div>
 </div>
@@ -76,6 +291,23 @@ const html = `
     div.className = 'message ' + sender;
     div.innerText = sanitizeForDisplay(text);
     messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+
+  function addCall995Button() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message actions';
+
+    const button = document.createElement('button');
+    button.className = 'call995-btn';
+    button.type = 'button';
+    button.innerText = 'Call 995';
+    button.onclick = () => {
+      window.location.href = 'tel:87122139';
+    };
+
+    wrapper.appendChild(button);
+    messagesDiv.appendChild(wrapper);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
 
@@ -106,6 +338,9 @@ const html = `
         addMessage("Error: " + data.error, 'bot');
       } else {
         addMessage(data.response, 'bot');
+        if (data.shouldCall995 === true) {
+          addCall995Button();
+        }
         history.push({ role: "assistant", content: data.response }); // ✅ add assistant reply
       }
     } catch (e) {
@@ -276,7 +511,13 @@ INSTRUCTIONS:
           asString(modelResponse?.result) ||
           "";
 
-        return new Response(JSON.stringify({ response: text }), {
+        const normalizedAdvice = advice.toLowerCase();
+        const shouldCall995 =
+          normalizedAdvice.includes("a&e") ||
+          normalizedAdvice.includes("a & e") ||
+          normalizedAdvice.includes("a and e");
+
+        return new Response(JSON.stringify({ response: text, shouldCall995 }), {
           headers: { "Content-Type": "application/json" },
         });
       } catch (e: any) {
