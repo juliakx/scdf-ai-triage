@@ -21,6 +21,8 @@ with open(INPUT_CSV, 'r', encoding='utf-8') as f_in, open(OUTPUT_SQL, 'w', encod
         name = f"{row['patient_first_name']} {row['patient_last_name']}".replace("'", "''") # Escape single quotes
         age = row['age']
         sex = row['sex']
+        planning_area = row['planning_area'].replace("'", "''")
+        address = row['address'].replace("'", "''")
         
         # Clean up the JSON-like strings for SQL
         conditions = row['conditions'].replace("'", "''")
@@ -29,7 +31,11 @@ with open(INPUT_CSV, 'r', encoding='utf-8') as f_in, open(OUTPUT_SQL, 'w', encod
         last_visit = row['last_visit_date']
 
         # 4. Generate INSERT statement
-        sql = f"INSERT INTO patients (nric, name, age, sex, conditions, medications, allergies, last_visit) VALUES ('{nric}', '{name}', {age}, '{sex}', '{conditions}', '{medications}', '{allergies}', '{last_visit}');\n"
+        sql = (
+            "INSERT INTO patients "
+            "(nric, name, age, sex, planning_area, address, conditions, medications, allergies, last_visit) "
+            f"VALUES ('{nric}', '{name}', {age}, '{sex}', '{planning_area}', '{address}', '{conditions}', '{medications}', '{allergies}', '{last_visit}');\n"
+        )
         
         f_out.write(sql)
         count += 1
