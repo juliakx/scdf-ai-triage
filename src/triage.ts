@@ -2,39 +2,57 @@ import type { ChatMessage, PacCategoryRow } from "./types";
 import { asString, normalize } from "./utils";
 
 export function buildKnownFactsList(history: ChatMessage[], query: string): string[] {
+  // combine all user messages and the current query into a single array of strings
   const userTexts = [...history.filter((m) => m.role === "user").map((m) => m.content), query].map((t) => t.trim()).filter(Boolean);
   const facts = new Set<string>();
+
+  // medical keywords to look for
   const keywordPattern = /\b(cut|laceration|bleed|bleeding|fever|pain|cough|vomit|vomiting|chills|rash|headache|breath|dizzy|diarrh|finger|hand|chest|abdomen|throat)\b/i;
 
   for (const text of userTexts) {
     const lower = text.toLowerCase();
+
+    // Check for duration/timing
     if (/(?:\d+)\s*(?:min|mins|minute|minutes|hour|hours|day|days)\b/i.test(text)) {
       facts.add(`Timing: ${text}`);
     }
+
+    // physical measurements
     if (/(?:\d+(?:\.\d+)?)\s*cm\b/i.test(text)) {
       facts.add(`Size: ${text}`);
     }
+
+    // wound depth descriptions
     if (/\b(shallow|deep|not deep)\b/i.test(text)) {
       facts.add(`Depth: ${text}`);
     }
+
+    // types of bleeding
     if (/\b(spurt|spurting|steady flow|ooze|oozing|bleeding)\b/i.test(lower)) {
       facts.add(`Bleeding: ${text}`);
     }
+
+    // common medications
     if (/\b(paracetamol|ibuprofen|medication|medicine)\b/i.test(lower)) {
       facts.add(`Medication: ${text}`);
     }
+
+    // Yes/No answers to follow-up questions
     if (/\b(yes|no)\b/i.test(lower) && history.length > 0) {
       facts.add(`Patient answer: ${text}`);
     }
     if (keywordPattern.test(text) && text.length <= 120) {
       facts.add(`Symptom detail: ${text}`);
     }
+
+    // limit extraction to prevent data overload
     if (facts.size >= 10) break;
   }
 
   return [...facts].slice(0, 6);
 }
 
+// formats the list of facts into bulleted Markdown string for UI
 export function buildKnownFacts(history: ChatMessage[], query: string): string {
   const lines = buildKnownFactsList(history, query);
   return lines.length ? lines.map((l) => `- ${l}`).join("\n") : "- No stable facts extracted yet.";
@@ -44,10 +62,13 @@ export function deriveWhyTriage(urgency: string, matchedProtocol: string, knownF
   const reasons: string[] = [];
   reasons.push(`Protocol matched: ${matchedProtocol}.`);
   reasons.push(`Urgency classified as: ${urgency}.`);
+
+  // clean up the fact labels (e.g remove Timing:)
   for (const fact of knownFacts.slice(0, 2)) {
     reasons.push(fact.replace(/^(Timing|Size|Depth|Bleeding|Medication|Patient answer|Symptom detail):\s*/i, ""));
   }
 
+  // Check if the user's existing medical history played a role
   const conditions = asString(patientRecord?.conditions).trim();
   if (conditions && conditions !== "None" && conditions !== "[]" && conditions !== '[""]') {
     reasons.push("Relevant medical history was considered from patient record.");
@@ -62,6 +83,7 @@ export function deriveMissingCriticalInfo(botIsStillAsking: boolean, responseTex
     return [question.trim()];
   }
 
+  // prompt for more detail if needed
   if (knownFacts.length < 2) {
     return ["Symptom details are still sparse; confirm duration, severity, and associated symptoms if they change."];
   }
@@ -69,6 +91,7 @@ export function deriveMissingCriticalInfo(botIsStillAsking: boolean, responseTex
   return ["No critical missing info for the current disposition."];
 }
 
+// splits a string into small strings based on punctuation (for keyword matching)
 export function extractPacPhrases(text: string): string[] {
   return text
     .toLowerCase()
@@ -90,7 +113,11 @@ export function derivePacCategory(
     const phrases = extractPacPhrases(`${row.title}, ${row.examples}`);
     let score = 0;
     for (const phrase of phrases) {
+
+      // high score for matching a full phrase
       if (q.includes(normalize(phrase))) score += 5;
+
+      // lower score for matching individual words
       const tokens = phrase.split(" ").filter((t) => t.length >= 4);
       for (const token of tokens) {
         if (q.includes(token)) score += 1;
@@ -101,6 +128,7 @@ export function derivePacCategory(
 
   if (!best || best.score <= 0) return null;
 
+  // how confident the system is based on the score
   const confidence: "low" | "medium" | "high" =
     best.score >= 12 ? "high" : best.score >= 6 ? "medium" : "low";
 
@@ -113,15 +141,19 @@ export function derivePacCategory(
   };
 }
 
+// backup 
 export function buildFallbackClinicalReply(query: string, history: ChatMessage[], urgency: string, advice: string, knownFactsList: string[] = []): string {
   const userTranscript = `${history.filter((m) => m.role === "user").map((m) => m.content).join(" ")} ${query}`.toLowerCase();
   const hasHighFever = /\b(?:39|40|41)(?:\s*\.?\s*\d+)?\s*(?:c|°c|degrees?)?\b/.test(userTranscript);
   const hasPersistentDays = /\b(?:[3-9]|[1-9]\d+)\s*day/.test(userTranscript);
   const hasChills = /\bchills?|rigors?|shaking\b/.test(userTranscript);
 
+  // for high fever 39 & above
   if (hasHighFever && hasPersistentDays) {
     return "A persistent high fever for several days needs prompt in-person medical review today. Please go to a GP clinic or polyclinic as soon as possible. Keep hydrating, and if you develop red-flag symptoms (confusion, severe headache, rapid breathing, chest/abdominal pain, repeated vomiting, or trouble staying upright), call 995 or go to A&E immediately.";
   }
+
+  // high fever for multiple days
   if (hasChills) {
     return "Fever with chills can indicate a significant infection and should be assessed by a doctor today. Please attend a nearby GP clinic or polyclinic promptly. If severe symptoms develop, call 995 or go to A&E immediately.";
   }
@@ -148,6 +180,7 @@ export function isLikelyNoReply(text: string): boolean {
   return t === "no" || t === "nope" || t === "none" || t === "nil" || t.startsWith("no ");
 }
 
+// checks if the AI has asked a "checklist" style question (multiple symptoms at once).
 export function isBroadSymptomChecklist(text: string): boolean {
   const t = text.toLowerCase();
   const keywords = ["cough", "breath", "chest pain", "rash", "headache", "vomit", "confusion", "chills", "abdominal pain"];
@@ -170,6 +203,7 @@ export function isLikelyNegativeAnswer(text: string): boolean {
   return t === "no" || t === "nope" || t === "none" || t === "nil" || t === "nah";
 }
 
+// counts how many times the user has said "No" in recent messages, to stop the AI from over-questioning if the user keeps saying they don't have symptoms
 export function countRecentNegativeUserAnswers(history: ChatMessage[], limit = 6): number {
   let count = 0;
   for (let i = history.length - 1; i >= 0 && count < limit; i -= 1) {
@@ -181,6 +215,7 @@ export function countRecentNegativeUserAnswers(history: ChatMessage[], limit = 6
   return count;
 }
 
+// checks a response to see if it contains an active command to go to emergency services.
 export function hasImmediateEmergencyDirective(text: string): boolean {
   const t = text.toLowerCase();
   const sentences = t.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
@@ -204,6 +239,7 @@ export function hasImmediateEmergencyDirective(text: string): boolean {
   return true;
 }
 
+// Helper to check if the urgency is non-critical (GP or Self Care)
 export function isNonEmergencyUrgency(urgency: string, advice: string): boolean {
   const u = urgency.toLowerCase();
   const a = advice.toLowerCase();
@@ -220,11 +256,13 @@ export function isNonEmergencyUrgency(urgency: string, advice: string): boolean 
   );
 }
 
+// Helper to check if the urgency is an emergency (A&E)
 export function isEmergencyUrgency(urgency: string): boolean {
   const u = urgency.toLowerCase().trim();
   return u === "ae" || u.includes("emergency") || u.includes("a&e") || u.includes("a & e") || u.includes("a and e");
 }
 
+// checks if the user is asking for specific clinics
 export function asksForClinicRecommendation(query: string): boolean {
   const q = query.toLowerCase();
   return [
@@ -233,11 +271,13 @@ export function asksForClinicRecommendation(query: string): boolean {
   ].some((term) => q.includes(term));
 }
 
+// check if user is answering "Yes"
 export function isAffirmativeReply(query: string): boolean {
   const q = query.trim().toLowerCase();
   return ["yes", "y", "ok", "okay", "sure", "please", "can", "can help", "yea", "yeah"].includes(q);
 }
 
+// checks if the AI recently offered to find a clinic
 export function recentlyOfferedClinicSuggestion(history: ChatMessage[]): boolean {
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const m = history[i];
@@ -249,6 +289,7 @@ export function recentlyOfferedClinicSuggestion(history: ChatMessage[]): boolean
   return false;
 }
 
+// checks if the system has already prompted the user for their location/area.
 export function alreadyAskedForLocation(history: ChatMessage[]): boolean {
   return history.some(
     (m) =>

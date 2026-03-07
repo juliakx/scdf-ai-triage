@@ -1,10 +1,11 @@
-import { Ai } from "@cloudflare/ai";
-import { html } from "./html";
-import {
+// D1 contains patients, triage_rules, clinics, pac_categories
+import { Ai } from "@cloudflare/ai"; // allows code to run LLM on cloudfare's network
+import { html } from "./html"; // the ./ means refer to finding the file in the same directory as current file
+import { // refer to utils.ts for info on each fn
   asString,
   extractAssistantText,
   sanitizeHistory,
-  buildModelHistory,
+  buildModelHistory, // used in runModelWithRetries, so not explicitly used in this file
   ensureCurrentUserMessage,
   runModelWithRetries,
 } from "./utils";
@@ -29,13 +30,13 @@ import type { Env, TriageRuleRow, PacCategoryRow, ClinicRecommendation } from ".
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === "GET") {
+    if (request.method === "GET") { // when user first loads the page, the worker returns html file (user interface)
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     }
 
-    if (request.method === "POST") {
+    if (request.method === "POST") { // when user types msg and sends, browser sends a POST request with chat data. the following is how it processes the data
       try {
-        const ai = new Ai(env.AI);
+        const ai = new Ai(env.AI); // env.ai connects code to cloudfare's workers AI network, allowing the script to run LLMs directly
         const body = (await request.json().catch(() => ({}))) as {
           query?: string;
           nric?: string;
@@ -48,25 +49,26 @@ export default {
         const language = asString(body.language || "English").trim() || "English";
         const history = ensureCurrentUserMessage(sanitizeHistory(body.history), query);
 
-        if (!query) {
+        if (!query) { // if query is empty, send error
           return new Response(JSON.stringify({ error: "Missing query." }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           });
         }
 
-        // 1) PATIENT LOOKUP (D1)
+        // Patient lookup (D1)
         let patientContext = "No patient record found.";
         let patientRecord: any = null;
         if (nric) {
           const patient = await env.DB
-            .prepare("SELECT * FROM patients WHERE nric = ?")
-            .bind(nric)
-            .first<any>();
+            .prepare("SELECT * FROM patients WHERE nric = ?") // ? as placeholder rather than putting NRIC directly
+            .bind(nric) // replaces ? with the nric
+            .first<any>(); // return first matching row
 
           if (patient) {
             patientRecord = patient;
             patientContext =
+            
               `Patient: ${asString(patient.name, "Unknown")}, Age: ${asString(patient.age, "Unknown")}, Sex: ${asString(patient.sex, "Unknown")}, ` +
               `Conditions: ${asString(patient.conditions, "None")}, Medications: ${asString(patient.medications, "None")}, Allergies: ${asString(patient.allergies, "None")}`;
 
@@ -99,7 +101,7 @@ export default {
           }
         }
 
-        // Rule matching
+        // Rule matching, fetch static triage rules and PAC categories from database
         const { results } = await env.DB.prepare(
           "SELECT topic, destination, trigger_any, immediate_actions, do_not FROM triage_rules"
         ).all<TriageRuleRow>();
@@ -117,6 +119,7 @@ export default {
           }
         }
 
+        // defaults for cases that don't match specific rules
         let matchedProtocol = "General Assessment";
         let urgency = "Standard";
         let advice = "Assess symptoms carefully.";
@@ -124,6 +127,7 @@ export default {
 
         const queryLower = englishQuery.toLowerCase();
 
+        // loop through rules to see if any trigger keywords exist in the user's query
         for (const rule of results || []) {
           const triggers = asString((rule as any).trigger_any)
             .split(";")
@@ -139,6 +143,7 @@ export default {
           }
         }
 
+        // Categorise based on PAC definitions
         const pacCategory = derivePacCategory(englishQuery, pacRows);
 
         const checklistDenied = hasRecentChecklistDenied(history);
@@ -192,6 +197,7 @@ INSTRUCTIONS:
 ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do NOT ask another broad checklist. Ask a different focused question or conclude triage." : ""}
 `.trim();
 
+// Run the model to generate a conversational response
         let modelResponse: any;
         let usedFallbackReply = false;
         try {
@@ -201,6 +207,7 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
           usedFallbackReply = true;
         }
 
+        // extract text or use the fallback manual clinical logic if the AI failed
         let text =
           usedFallbackReply
             ? buildFallbackClinicalReply(query, history, urgency, advice, knownFactsList)
@@ -212,6 +219,7 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
 
         const responseLower = text.toLowerCase();
 
+        // Detect if the AI suggested emergency care
         const responseHasImmediateEmergencyDirective =
           hasImmediateEmergencyDirective(responseLower) ||
           responseLower.includes("need emergency care right now") ||
@@ -219,6 +227,7 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
 
         const shouldCall995 = isEmergencyUrgency(urgency) || responseHasImmediateEmergencyDirective;
 
+        // check if non-emergency ambulance (118) should be used
         const shouldCall118 =
           !shouldCall995 &&
           (advice.toLowerCase().includes("118") ||
@@ -228,8 +237,9 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
             responseLower.includes("non-emergency ambulance") ||
             responseLower.includes("non emergency ambulance"));
 
+        // clean up AI's response
         let responseText = text;
-        // Remove any model-generated clinic placeholders; the app renders real clinic entries below.
+        // remove any model-generated clinic placeholders
         responseText = responseText
           .replace(/\(?\s*[Cc]linic\s+list\s+will\s+(?:be|eb)\s+displa\w*\s+here\s*\)?\.?\s*/gi, "")
           .replace(/^\s*[-•*]?\s*\(?\s*clinic\s+list\s+will\s+(?:be|eb)\s+displa\w*\s+here\s*\)?\s*$/gim, "")
@@ -247,6 +257,7 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
           responseText += "\n\nPlease call 995 now or go directly to the nearest A&E.";
         }
 
+        // hard-code safety message if it's an emergency but AI didn't explicitly say call 995
         if (!responseText.trim()) {
           responseText = shouldCall995
             ? "You need emergency care right now. Please call 995 or go directly to the nearest A&E."
@@ -267,9 +278,11 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
               m.content.toLowerCase().includes("suggest") && m.content.toLowerCase().includes("clinic"))
         );
 
+        // find and append clinic data from the database
         let botIsStillAsking = responseText.trimEnd().endsWith("?");
         const recentNegativeAnswers = countRecentNegativeUserAnswers(history);
 
+        // if the patient keeps saying "no" to symptoms, stop questioning and provide advice
         if (
           botIsStillAsking &&
           !shouldCall995 &&
@@ -281,6 +294,7 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
           botIsStillAsking = false;
         }
 
+        // Check if we should offer clinics (not an emergency)
         const shouldOfferClinics =
           !shouldCall995 &&
           !botIsStillAsking &&
@@ -295,6 +309,7 @@ ${checklistDenied ? "9. The patient already denied a broad symptom checklist; do
         if (shouldOfferClinics) {
           const userLocation = resolvedLocation;
 
+          // get top 2 closest clinics from the D1 database based on the user's area
           if (userLocation) {
             const recommendations = await findClosestClinics(env.DB, userLocation, 2);
             recommendedClinics = recommendations;

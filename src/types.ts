@@ -28,7 +28,9 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export const MODEL_CANDIDATES = [
   "@cf/openai/gpt-oss-120b",
-  "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
+  "@cf/meta/llama-3.1-8b-instruct-fast", // added new backups
+  "@cf/mistralai/mistral-7b-instruct-v0.1", // added new backups
+  // "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
 ] as const;
 
 export const MAX_HISTORY_MESSAGES = 40;
