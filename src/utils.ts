@@ -11,8 +11,7 @@ export function asString(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : v == null ? fallback : String(v);
 }
 
-// replace(/[^a-z0-9\s]/g, " ") anything thats not a lowercase letter/number/space, it'll be replaced by a " ". so it strips out punctuationsetc
-// prevents punctu
+// replace(/[^a-z0-9\s]/g, " ") anything thats not a lowercase letter/number/space, it'll be replaced by a " ". so it strips out punctuation
 // replace(/\s+/g, " ") any multiple spaces in a row is removed and collapses into a single space (useful as the output of previous replace may result in multiple spaces in between)
 export function normalize(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -104,7 +103,7 @@ export function ensureCurrentUserMessage(history: ChatMessage[], query: string):
 }
 
 // to prevent entre chat from failing after several prompts, would retry with other models if it fails.
-export async function runModelWithRetries(ai: Ai, systemPrompt: string, history: ChatMessage[]): Promise<any> {
+export async function runModelWithRetries(ai: any, systemPrompt: string, history: ChatMessage[]): Promise<any> {
   let lastError: unknown;
 
   // go through the list of models
