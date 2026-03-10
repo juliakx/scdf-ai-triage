@@ -27,9 +27,11 @@ with open(INPUT_CSV, 'r', encoding='utf-8') as f_in, open(OUTPUT_SQL, 'w', encod
         medications = row['medications'].replace("'", "''")
         allergies = row['allergies'].replace("'", "''")
         last_visit = row['last_visit_date']
+        planning_area = row.get('planning_area', '').strip().replace("'", "''")
+        address = row.get('address', '').strip().replace("'", "''")
 
         # 4. Generate INSERT statement
-        sql = f"INSERT INTO patients (nric, name, age, sex, conditions, medications, allergies, last_visit) VALUES ('{nric}', '{name}', {age}, '{sex}', '{conditions}', '{medications}', '{allergies}', '{last_visit}');\n"
+        sql = f"INSERT INTO patients (nric, name, age, sex, conditions, medications, allergies, last_visit, planning_area, address) VALUES ('{nric}', '{name}', {age}, '{sex}', '{conditions}', '{medications}', '{allergies}', '{last_visit}', '{planning_area}', '{address}');\n"
         
         f_out.write(sql)
         count += 1

@@ -5,92 +5,188 @@ export interface Env {
   DB: D1Database;
 }
 
-// --- FRONTEND (HTML) ---
+// dump the entire frontend ui into this string so we can serve it from the worker directly
 const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCDF Triage Assistant</title>
+  <title>Symptom Checker — Triage Assistant</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f3f6fb;
+      --hh-green: #1a6640;
+      --hh-green-dark: #144f32;
+      --hh-green-light: #e8f4ed;
+      --bg: #f5f7f5;
       --panel: #ffffff;
-      --panel-soft: #f8fafc;
-      --border: #dbe3ee;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --primary: #c62828;
-      --primary-soft: #eef3f9;
-      --user: #d32f2f;
+      --border: #d4dbd4;
+      --text: #1a2e1a;
+      --muted: #5a6e5a;
+      --user-bg: #1a6640;
+      --user-fg: #ffffff;
     }
 
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(circle at top, #ffffff 0%, var(--bg) 55%);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      color: var(--text);
+    }
+
+    .site-header {
+      background: var(--hh-green);
+      color: #fff;
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .site-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .logo-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 300;
+      color: #fff;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .logo-text {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .page-body {
+      flex: 1;
       display: flex;
       justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 16px;
-      color: var(--text);
+      align-items: flex-start;
+      padding: 28px 16px 24px;
     }
 
     .chat-container {
-      width: min(100%, 760px);
-      height: min(92vh, 900px);
+      width: min(100%, 820px);
+      height: calc(100vh - 56px - 52px);
+      min-height: 480px;
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 6px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
     }
 
     .header {
-      background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
-      color: var(--text);
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      padding: 16px 20px 14px;
+      border-bottom: 2px solid var(--hh-green);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
 
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--hh-green-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .header-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--hh-green);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .header-title {
-      font-size: 1.02rem;
+      font-size: 1rem;
       font-weight: 700;
-      letter-spacing: 0.01em;
+      color: var(--text);
     }
 
     .header-subtitle {
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: var(--muted);
       margin-top: 2px;
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .header-badge {
       font-size: 0.72rem;
-      color: #7f1d1d;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 999px;
-      padding: 4px 8px;
+      color: var(--hh-green-dark);
+      background: var(--hh-green-light);
+      border: 1px solid #b2d4be;
+      border-radius: 4px;
+      padding: 3px 8px;
       white-space: nowrap;
+      font-weight: 500;
+    }
+
+    .panel-toggle {
+      background: #fff;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-size: 0.76rem;
+      font-weight: 500;
+      cursor: pointer;
+      min-width: auto;
+    }
+
+    .panel-toggle:hover {
+      border-color: var(--hh-green);
+      color: var(--hh-green);
     }
 
     .settings {
-      padding: 12px 20px;
-      background: var(--panel-soft);
+      padding: 10px 20px;
+      background: #f9fbf9;
       border-bottom: 1px solid var(--border);
-      font-size: 0.82rem;
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
@@ -99,63 +195,79 @@ const html = `
     .setting-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
 
     .setting-label {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--muted);
-      letter-spacing: 0.01em;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
     select, input.nric {
-      padding: 9px 10px;
-      border-radius: 10px;
-      border: 1px solid #cfd8e3;
+      padding: 7px 10px;
+      border-radius: 4px;
+      border: 1px solid #c8d5c8;
       background: #fff;
       color: var(--text);
       outline: none;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
     }
 
     select:focus, input.nric:focus, #userInput:focus {
-      border-color: #9db6d8;
-      box-shadow: 0 0 0 3px rgba(157, 182, 216, 0.25);
+      border-color: var(--hh-green);
+      box-shadow: 0 0 0 2px rgba(26, 102, 64, 0.12);
+    }
+
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 272px;
+      min-height: 0;
+    }
+
+    .chat-pane {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-right: 1px solid var(--border);
     }
 
     .messages {
       flex: 1;
-      padding: 18px 20px;
+      padding: 20px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      background: #fbfcff;
+      gap: 10px;
+      background: #fafcfa;
     }
 
     .message {
-      max-width: 84%;
-      padding: 11px 14px;
-      border-radius: 14px;
-      line-height: 1.45;
-      font-size: 0.95rem;
+      max-width: 82%;
+      padding: 10px 14px;
+      border-radius: 4px;
+      line-height: 1.5;
+      font-size: 0.92rem;
       white-space: pre-wrap;
-      border: 1px solid transparent;
     }
 
     .message.user {
       align-self: flex-end;
-      background: var(--user);
-      color: #fff;
-      border-bottom-right-radius: 4px;
+      background: var(--user-bg);
+      color: var(--user-fg);
+      border-bottom-right-radius: 2px;
     }
 
     .message.bot {
       align-self: flex-start;
-      background: var(--primary-soft);
+      background: #fff;
       color: var(--text);
-      border-color: #dfe8f4;
-      border-bottom-left-radius: 4px;
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 2px;
     }
 
     .message.actions {
@@ -167,82 +279,194 @@ const html = `
 
     .input-area {
       border-top: 1px solid var(--border);
-      padding: 14px 16px;
+      padding: 12px 16px;
       display: flex;
-      gap: 10px;
+      gap: 8px;
       background: var(--panel);
     }
 
     #userInput {
       flex: 1;
-      padding: 12px 14px;
-      border: 1px solid #cfd8e3;
-      border-radius: 12px;
+      padding: 10px 14px;
+      border: 1px solid #c8d5c8;
+      border-radius: 4px;
       outline: none;
-      font-size: 0.96rem;
+      font-size: 0.92rem;
       background: #fff;
+      color: var(--text);
     }
 
     button {
-      background: var(--primary);
+      background: var(--hh-green);
       color: white;
       border: none;
       padding: 0 18px;
-      border-radius: 12px;
+      border-radius: 4px;
       cursor: pointer;
       font-weight: 600;
-      font-size: 0.92rem;
-      min-width: 78px;
+      font-size: 0.88rem;
+      min-width: 72px;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--hh-green-dark);
     }
 
     button:disabled {
-      background: #d1d5db;
-      color: #6b7280;
+      background: #c8d5c8;
+      color: var(--muted);
       cursor: default;
     }
 
-    .call995-btn {
-      background: #f8fafc;
-      color: #64748b;
-      border: 1px solid #d5dde8;
-      padding: 6px 11px;
-      border-radius: 12px;
+    .message-action-bar {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(0,0,0,0.07);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .call995-btn, .call118-btn {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 4px;
       font-weight: 500;
-      font-size: 0.78rem;
-      line-height: 1;
+      font-size: 0.88rem;
+      cursor: pointer;
       min-width: auto;
     }
 
-    .call995-btn:hover {
-      background: #f1f5f9;
-      color: #475569;
+    .call995-btn:hover, .call118-btn:hover {
+      border-color: var(--hh-green);
+      color: var(--hh-green);
+    }
+
+    .insights-pane {
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .insights-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-size: 0.82rem;
+      color: #2e3d2e;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .insight-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+    }
+
+    .insight-title {
+      font-size: 0.70rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .insight-line {
+      margin: 0 0 5px;
+      line-height: 1.4;
+      color: var(--text);
+    }
+
+    .insight-line:last-child { margin-bottom: 0; }
+
+    .guide-card { border-left: 3px solid #d4dbd4; }
+    .guide-card.gc-red { border-left-color: #dc2626; }
+    .guide-card.gc-orange { border-left-color: #ea580c; }
+    .guide-card.gc-amber { border-left-color: #d97706; }
+    .guide-card.gc-blue { border-left-color: #5ec7ff; }
+    .guide-card.gc-green { border-left-color: #16a34a; }
+
+    .guide-card .insight-title {
+      text-transform: none;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0;
+      margin-bottom: 8px;
+    }
+
+    .guide-card .insight-line {
+      padding-left: 10px;
+      border-left: 2px solid #e8f0e8;
+      margin-bottom: 5px;
+      color: var(--muted);
+    }
+
+    .workspace.panel-hidden {
+      grid-template-columns: 1fr;
+    }
+
+    .workspace.panel-hidden .chat-pane {
+      border-right: none;
+    }
+
+    .workspace.panel-hidden .insights-pane {
+      display: none;
     }
 
     @media (max-width: 680px) {
-      body { padding: 0; }
+      .page-body { padding: 0; }
       .chat-container {
         width: 100%;
-        height: 100vh;
+        height: calc(100vh - 56px);
         border-radius: 0;
-        border-left: none;
-        border-right: none;
+        border: none;
+        box-shadow: none;
       }
       .settings { grid-template-columns: 1fr; }
       .message { max-width: 90%; }
+      .workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) 200px;
+      }
+      .chat-pane { border-right: none; border-bottom: 1px solid var(--border); }
     }
   </style>
 </head>
 <body>
 
+<header class="site-header">
+  <div class="site-logo">
+    <div class="logo-mark">+</div>
+    <span class="logo-text">Triage Assistant</span>
+  </div>
+</header>
+
+<div class="page-body">
 <div class="chat-container">
   <div class="header">
-    <div>
-      <div class="header-title">SCDF Triage Assistant</div>
-      <div class="header-subtitle">Guidance for urgent and non-urgent symptoms</div>
+    <div class="header-left">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div class="header-title">Symptom Checker</div>
+        <div class="header-subtitle">Guidance for urgent and non-urgent symptoms</div>
+      </div>
     </div>
-    <div class="header-badge">24/7 Guidance</div>
+    <div class="header-right">
+      <button type="button" class="panel-toggle" id="panelToggle" onclick="togglePanel()">Hide Panel</button>
+      <div class="header-badge">24 / 7</div>
+    </div>
   </div>
-  
+
   <div class="settings">
     <div class="setting-group">
       <label class="setting-label" for="language">Language</label>
@@ -254,69 +478,172 @@ const html = `
       </select>
     </div>
     <div class="setting-group">
-      <label class="setting-label" for="nric">Patient NRIC (optional)</label>
+      <label class="setting-label" for="nric">Patient NRIC</label>
       <input type="text" id="nric" class="nric" placeholder="S1234567A">
     </div>
   </div>
 
-  <div class="messages" id="messages">
-    <div class="message bot">Hello, I’m here to help with triage guidance. Describe your symptoms, and include severity or duration if possible.</div>
-  </div>
+  <div class="workspace">
+    <div class="chat-pane">
+      <div class="messages" id="messages">
+        <div class="message bot">Hello. Please describe your symptoms, including how long you've had them and how severe they feel.</div>
+      </div>
+      <div class="input-area">
+        <input type="text" id="userInput" placeholder="e.g. chest pain for 20 minutes" onkeypress="handleEnter(event)">
+        <button id="sendBtn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
 
-  <div class="input-area">
-    <input type="text" id="userInput" placeholder="Describe symptoms (e.g. chest pain for 20 minutes)" onkeypress="handleEnter(event)">
-    <button id="sendBtn" onclick="sendMessage()">Send</button>
+    <aside class="insights-pane">
+      <div class="insights-content" id="insightsContent"></div>
+    </aside>
   </div>
+</div>
 </div>
 
 <script>
   const messagesDiv = document.getElementById('messages');
   const input = document.getElementById('userInput');
   const sendBtn = document.getElementById('sendBtn');
+  const panelToggle = document.getElementById('panelToggle');
+  const workspace = document.querySelector('.workspace');
+  const insightsContent = document.getElementById('insightsContent');
+  let history = [];
 
-  // ✅ chat history
-  let history = []; // [{role:"user"|"assistant", content:"..."}]
-
+  // allow the user to just press enter instead of clicking the button
   function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
 
-  // ✅ remove markdown ** so it doesn't show in UI
+  // strips out some basic markdown formatting from the bot's response so it looks cleaner
   function sanitizeForDisplay(text) {
     return String(text || "")
       .replace(/\\*\\*/g, "")
       .replace(/^\\s*\\*\\s+/gm, "• ");
   }
 
+  // helper to drop new chat bubbles onto the screen
   function addMessage(text, sender) {
+    if (!String(text || "").trim()) return;
     const div = document.createElement('div');
     div.className = 'message ' + sender;
     div.innerText = sanitizeForDisplay(text);
     messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return div;
   }
 
-  function addCall995Button() {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'message actions';
-
-    const button = document.createElement('button');
-    button.className = 'call995-btn';
-    button.type = 'button';
-    button.innerText = 'Call 995';
-    button.onclick = () => {
-      window.location.href = 'tel:87122139';
-    };
-
-    wrapper.appendChild(button);
-    messagesDiv.appendChild(wrapper);
+  // injects the emergency contact buttons below the bot's message if needed
+  function addCallButtons(msgDiv, show995, show118) {
+    // always strip buttons from older messages — only the latest reply should show them
+    document.querySelectorAll('.message-action-bar').forEach(function(el) { el.remove(); });
+    if (!show995 && !show118) return;
+    const bar = document.createElement('div');
+    bar.className = 'message-action-bar';
+    if (show995) {
+      const btn = document.createElement('button');
+      btn.className = 'call995-btn';
+      btn.type = 'button';
+      btn.textContent = 'Call 995';
+      btn.onclick = function() { window.location.href = 'tel:995'; };
+      bar.appendChild(btn);
+    }
+    if (show118) {
+      const btn = document.createElement('button');
+      btn.className = 'call118-btn';
+      btn.type = 'button';
+      btn.textContent = 'Call 118';
+      btn.onclick = function() { window.location.href = 'tel:118'; };
+      bar.appendChild(btn);
+    }
+    msgDiv.appendChild(bar);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
 
+  // populates the static advice cards on the right side panel
+  function renderGuide() {
+    function guideCard(color, title, lines) {
+      const escapeHtml = (v) => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const items = lines.map((l) => '<p class="insight-line">' + escapeHtml(l) + '</p>').join('');
+      return '<section class="insight-card guide-card ' + color + '"><div class="insight-title">' + escapeHtml(title) + '</div>' + items + '</section>';
+    }
+
+    insightsContent.innerHTML = [
+      guideCard('gc-red', 'Call 995 — Emergency', [
+        'Chest pain or tightness',
+        'Difficulty breathing / not breathing',
+        'Suspected stroke (face drooping, arm weakness, slurred speech)',
+        'Unconscious or unresponsive',
+        "Severe bleeding that won\'t stop",
+        'Seizures or loss of consciousness',
+        'Major trauma or serious injury',
+        'Severe allergic reaction (anaphylaxis)',
+      ]),
+      guideCard('gc-orange', 'Call 118 — Non-Emergency Ambulance', [
+        'Need transport but condition is NOT life-threatening',
+        'Stable but unable to self-transport to a clinic',
+        'Elderly or immobile patient needing a transfer',
+        'If life is at risk, call 995 instead of 118',
+      ]),
+      guideCard('gc-amber', 'Go to A&E', [
+        'Severe or rapidly worsening symptoms',
+        'High fever with confusion or stiff neck',
+        'Sudden severe headache (worst of your life)',
+        'Chest pain not yet confirmed non-cardiac',
+        'Serious injuries requiring imaging or surgery',
+      ]),
+      guideCard('gc-blue', 'See a GP or Polyclinic', [
+        'Sore throat, cough, runny nose lasting a few days',
+        'Mild to moderate fever (below 39 °C)',
+        'Ear pain, eye discharge, mild rash',
+        'Urinary discomfort',
+        'Minor wounds or lacerations',
+        'Chronic condition follow-up (diabetes, hypertension, etc.)',
+        'Polyclinics offer subsidised rates for citizens and PRs',
+      ]),
+      guideCard('gc-green', 'Self-Care at Home', [
+        'Common cold with mild symptoms',
+        'Low-grade fever: rest, fluids, paracetamol',
+        'Mild sore throat: honey, lozenges, warm drinks',
+        'Minor cuts: clean, apply pressure, bandage',
+        'Mild diarrhoea without blood: stay hydrated',
+        'If symptoms worsen or persist beyond 3 days, see a GP',
+      ]),
+    ].join('');
+  }
+
+  // hides or shows the extra info panel which is handy for smaller screens
+  function togglePanel() {
+    workspace.classList.toggle('panel-hidden');
+    panelToggle.innerText = workspace.classList.contains('panel-hidden') ? 'Show Panel' : 'Hide Panel';
+  }
+
+  // takes the clinic data we get from the backend and displays it in the side panel
+  function renderClinics(clinics) {
+    if (!clinics || clinics.length === 0) return;
+    const escapeHtml = function(v) { return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    var cards = '';
+    for (var i = 0; i < clinics.length; i++) {
+      var c = clinics[i];
+      var isHSG = c.type && c.type.indexOf('Healthier SG') !== -1;
+      var hsgTag = isHSG ? '<p class="insight-line" style="color:var(--hh-green);font-weight:600;">\u2713 Healthier SG Clinic</p>' : '';
+      cards += '<section class="insight-card">'
+        + '<div class="insight-title">' + escapeHtml(c.name) + '</div>'
+        + '<p class="insight-line">\uD83D\uDCCD ' + escapeHtml(c.address) + '</p>'
+        + '<p class="insight-line">\uD83D\uDCDE ' + escapeHtml(c.telephone) + '</p>'
+        + hsgTag
+        + '</section>';
+    }
+    insightsContent.innerHTML = '<section class="insight-card guide-card gc-green" style="margin-bottom:4px">'
+      + '<div class="insight-title">Nearby Clinics</div>'
+      + '</section>' + cards;
+  }
+
+  // main function that talks to our cloudflare worker
   async function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
     addMessage(text, 'user');
-    history.push({ role: "user", content: text }); // ✅ add to history
+    history.push({ role: "user", content: text });
 
     input.value = '';
     input.disabled = true;
@@ -332,16 +659,14 @@ const html = `
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: text, nric, language, history })
       });
-      
       const data = await response.json();
       if (data.error) {
         addMessage("Error: " + data.error, 'bot');
       } else {
-        addMessage(data.response, 'bot');
-        if (data.shouldCall995 === true) {
-          addCall995Button();
-        }
-        history.push({ role: "assistant", content: data.response }); // ✅ add assistant reply
+        const msgDiv = addMessage(data.response, 'bot');
+        if (msgDiv) addCallButtons(msgDiv, data.shouldCall995 === true, data.shouldCall118 === true);
+        if (data.clinics && data.clinics.length > 0) renderClinics(data.clinics);
+        history.push({ role: "assistant", content: data.response });
       }
     } catch (e) {
       addMessage("Connection error. Please try again.", 'bot');
@@ -353,6 +678,8 @@ const html = `
     sendBtn.innerText = 'Send';
     input.focus();
   }
+
+  renderGuide();
 </script>
 </body>
 </html>
@@ -366,10 +693,32 @@ type TriageRuleRow = {
   do_not: string;
 };
 
+type PatientRow = {
+  nric: string;
+  name: string;
+  age: number;
+  sex: string;
+  conditions: string;
+  medications: string;
+  allergies: string;
+  last_visit: string;
+  planning_area: string;
+  address: string;
+};
+
+type ClinicRow = {
+  name: string;
+  address: string;
+  telephone: string;
+  type: string;
+};
+
+// simple safeguard to make sure we are always working with strings
 function asString(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : v == null ? fallback : String(v);
 }
 
+// trims down the chat history to prevent sending too much text to the ai at once
 function sanitizeHistory(h: any): Array<{ role: "user" | "assistant"; content: string }> {
   if (!Array.isArray(h)) return [];
   const cleaned: Array<{ role: "user" | "assistant"; content: string }> = [];
@@ -379,20 +728,24 @@ function sanitizeHistory(h: any): Array<{ role: "user" | "assistant"; content: s
     if (!role || !content) continue;
     cleaned.push({ role, content });
   }
-  return cleaned.slice(-10);
+  // keep the start of the chat for context and the most recent messages to follow the flow
+  if (cleaned.length <= 20) return cleaned;
+  return [...cleaned.slice(0, 2), ...cleaned.slice(-18)];
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // just return our web page if someone visits the main url
     if (request.method === "GET") {
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     }
 
+    // handle incoming chat messages
     if (request.method === "POST") {
       try {
         const ai = new Ai(env.AI);
 
-        // ✅ safer JSON parse
+        // safely grab the data the frontend just sent us
         const body = (await request.json().catch(() => ({}))) as {
           query?: string;
           nric?: string;
@@ -412,22 +765,31 @@ export default {
           });
         }
 
-        // 1) PATIENT LOOKUP (D1)
-        let patientContext = "No patient record found.";
+        // check the database to see if we already know this patient's medical background
+        let patientContext = "No patient record on file — ask the user about their medical history if relevant.";
+        let patientArea = "";
         if (nric) {
           const patient = await env.DB
             .prepare("SELECT * FROM patients WHERE nric = ?")
             .bind(nric)
-            .first<any>();
+            .first<PatientRow>();
 
           if (patient) {
+            patientArea = asString(patient.planning_area, "");
+            const conditions = asString(patient.conditions, "[]");
+            const meds = asString(patient.medications, "[]");
+            const allergies = asString(patient.allergies, "[]");
             patientContext =
-              `Patient: ${asString(patient.name, "Unknown")}, Age: ${asString(patient.age, "Unknown")}, Sex: ${asString(patient.sex, "Unknown")}, ` +
-              `Conditions: ${asString(patient.conditions, "None")}, Medications: ${asString(patient.medications, "None")}, Allergies: ${asString(patient.allergies, "None")}`;
+              `Name: ${asString(patient.name)}, Age: ${patient.age}, Sex: ${asString(patient.sex)}\n` +
+              `Address: ${asString(patient.address)} (${patientArea})\n` +
+              `Known Conditions: ${conditions === "[]" ? "None" : conditions}\n` +
+              `Current Medications: ${meds === "[]" ? "None" : meds}\n` +
+              `Allergies: ${allergies === "[]" ? "None" : allergies}\n` +
+              `Last Visit: ${asString(patient.last_visit, "Unknown")}`;
           }
         }
 
-        // 2) TRANSLATION -> English (only if needed)
+        // we convert whatever language they are typing in over to english so our model processes it better
         let englishQuery = query;
         if (language !== "English") {
           const translateResponse: any = await ai.run("@cf/aisingapore/gemma-sea-lion-v4-27b-it", {
@@ -445,17 +807,21 @@ export default {
             query;
         }
 
-        // 3) RULE MATCHING
+        // pull out our emergency keywords from the database
         const { results } = await env.DB.prepare(
           "SELECT topic, destination, trigger_any, immediate_actions, do_not FROM triage_rules"
         ).all<TriageRuleRow>();
+
+        // glue all their messages together so we can search the whole conversation for danger signs
+        const allUserText = [
+          englishQuery,
+          ...history.filter(m => m.role === "user").map(m => m.content),
+        ].join(" ").toLowerCase();
 
         let matchedProtocol = "General Assessment";
         let urgency = "Standard";
         let advice = "Assess symptoms carefully.";
         let warnings = "";
-
-        const queryLower = englishQuery.toLowerCase();
 
         for (const rule of results || []) {
           const triggers = asString((rule as any).trigger_any)
@@ -463,7 +829,7 @@ export default {
             .map((t) => t.trim().toLowerCase())
             .filter(Boolean);
 
-          if (triggers.some((t) => queryLower.includes(t))) {
+          if (triggers.some((t) => allUserText.includes(t))) {
             matchedProtocol = asString((rule as any).topic, matchedProtocol);
             urgency = asString((rule as any).destination, urgency);
             advice = asString((rule as any).immediate_actions, advice);
@@ -472,38 +838,67 @@ export default {
           }
         }
 
-        // 4) MODEL
+        // if the issue is minor let us locate some clinics in their neighbourhood
+        let clinicsNearby: ClinicRow[] = [];
+        const isGPOrSelfCare =
+          urgency.includes("GP") ||
+          urgency.includes("SELF") ||
+          urgency === "Standard";
+
+        if (isGPOrSelfCare && patientArea) {
+          const clinicResult = await env.DB.prepare(
+            `SELECT name, address, telephone, type FROM clinics
+             WHERE type LIKE '%Medical%' AND address LIKE ?
+             ORDER BY name LIMIT 5`
+          ).bind(`%${patientArea.toUpperCase()}%`).all<ClinicRow>();
+          clinicsNearby = clinicResult.results || [];
+        }
+
+        const clinicSection = clinicsNearby.length > 0
+          ? `NEARBY CLINICS (patient lives in ${patientArea}):\n${clinicsNearby.map(c => `- ${c.name}: ${c.address}, Tel: ${c.telephone}`).join("\n")}\nWhen you recommend GP or self-care, briefly mention 1–3 of these clinics by name.`
+          : "";
+
+        // keep track of how deep we are into the chat so we don't ask endless questions
+        const exchangeCount = history.filter(m => m.role === "user").length;
+
+        // feed all this context into a massive prompt so the ai knows exactly how to act
         const systemPrompt = `
-You are an official SCDF Triage Assistant.
+You are a warm, professional Triage Assistant for Singapore's healthcare system.
 
-CRITICAL PROTOCOL FOUND:
-- Condition: ${matchedProtocol}
-- Urgency Code: ${urgency} (AE = Emergency, GP = Doctor, SELF_CARE = Home)
-- REQUIRED ACTIONS: ${advice}
-- PROHIBITED ACTIONS: ${warnings}
-
-PATIENT CONTEXT:
+## Patient Profile
 ${patientContext}
 
-CLARIFYING QUESTIONS RULE (IMPORTANT):
-- You may ask at most ONE clarifying question total in the whole conversation.
-- If the user answers vaguely (e.g., "no", "just flu"), do NOT ask again.
-- Instead, give best-effort triage advice using available info + a short list of red flags that require urgent care.
+## PAC Triage Classification
+PAC 1 — Resuscitation / Critically-ill: Cardiovascular collapse or imminent danger (e.g. heart attack, cardiac arrest, severe bleeding, severe asthma). → CALL 995 IMMEDIATELY
+PAC 2 — Acutely-ill (Non-Ambulant): Severe distress, but stable vitals; early A&E care needed to prevent deterioration (e.g. stroke, long bone fracture, moderate asthma). → GO TO A&E
+PAC 3 — Minor Emergency (Ambulant): Acute symptoms, can self-mobilise; mild to moderate severity (e.g. bleeding cuts, high persistent fever, moderate injuries). → SEE GP / POLYCLINIC
+PAC 4 — Non-Emergency: No immediate threat; manageable at home or primary care (e.g. mild cold, chronic back pain, acne). → SELF-CARE or GP
 
-INSTRUCTIONS:
-1. Reply in ${language}.
-2. If Urgency is 'AE', tell them to call 995 or go to A&E immediately.
-3. Be calm, concise, and professional.
-4. No fixed template/headings.
-5. Do not use gratitude/apology phrases unless user explicitly asks.
+## Matched Triage Protocol
+- Condition recognised: ${matchedProtocol}
+- Urgency level: ${urgency}
+- Recommended actions: ${advice}
+- What to avoid: ${warnings}
+
+${clinicSection}
+
+## Conversation Guidelines
+1. GATHER BEFORE CONCLUDING: If this is an early exchange (exchange ${exchangeCount} of the conversation) and the symptoms are still vague, ask ONE focused follow-up question. Good questions: what specific symptoms, how long, severity (mild/moderate/severe), whether worsening, any other symptoms.
+2. NATURAL FLOW: Do not ask multiple questions at once. One question per reply. Let the conversation build up naturally.
+3. CONCLUDE AFTER ENOUGH INFO: Once you have symptom type, duration, and severity (typically 2–3 exchanges), give a clear triage recommendation including the PAC level.
+4. IMMEDIATE RED FLAGS: If symptoms suggest PAC 1 or 2 at any point (chest pain, difficulty breathing, stroke signs—face drooping/arm weakness/slurred speech, unconscious, severe bleeding), skip all questions and immediately advise calling 995 or going to A&E. Do not delay.
+5. NEVER instruct the patient to perform CPR or use an AED on themselves — CPR is only ever performed by someone else on a collapsed person. If relevant, tell them to ask a bystander or the 995 dispatcher to guide someone nearby.
+6. CLINIC RECOMMENDATIONS: If the recommendation is PAC 3/4 (GP or self-care) and nearby clinics are listed above, mention 1–3 specific clinic names and addresses.
+7. PATIENT CONTEXT: Refer to the patient's known conditions, medications, and allergies where clinically relevant (e.g. if they have asthma and describe breathing issues, flag it specifically).
+8. LANGUAGE: Reply in ${language}.
+9. STYLE: Conversational and concise. 2–4 short paragraphs max. No lengthy headers or bullet-point walls — adapt tone to the message. Do not use gratitude/apology phrases.
 `.trim();
 
+        // finally pass it all to the model to generate a reply
         const modelResponse: any = await ai.run("@cf/openai/gpt-oss-120b", {
           messages: [{ role: "system", content: systemPrompt }, ...history],
           max_tokens: 1024,
         });
-
-        console.log('MODEL RAW:', JSON.stringify(modelResponse, null, 2));
 
         const text =
           asString(modelResponse?.choices?.[0]?.message?.content) ||
@@ -511,17 +906,39 @@ INSTRUCTIONS:
           asString(modelResponse?.result) ||
           "";
 
-        const normalizedAdvice = advice.toLowerCase();
-        const shouldCall995 =
-          normalizedAdvice.includes("a&e") ||
-          normalizedAdvice.includes("a & e") ||
-          normalizedAdvice.includes("a and e");
+        // determine if we should light up the call buttons on the user interface
+        let shouldCall995 = urgency === "AE";
+        let shouldCall118 = urgency === "GP" || urgency === "POLYCLINIC";
 
-        return new Response(JSON.stringify({ response: text, shouldCall995 }), {
-          headers: { "Content-Type": "application/json" },
-        });
+        // if the database didn't give us a clear rule we double check what the ai text actually says
+        if (urgency === "Standard") {
+          const lowerText = text.toLowerCase();
+          if (lowerText.includes("call 995") || lowerText.includes("dial 995")) {
+            shouldCall995 = true;
+          } else if (lowerText.includes("call 118") || lowerText.includes("dial 118")) {
+            shouldCall118 = true;
+          }
+        }
+
+        // suppress buttons when the AI is still mid-conversation (response ends with a question)
+        const trimmedText = text.trimEnd();
+        const stillAsking = trimmedText.endsWith("?") || trimmedText.endsWith("？");
+        if (stillAsking) {
+          shouldCall995 = false;
+          shouldCall118 = false;
+        }
+
+        return new Response(
+          JSON.stringify({
+            response: text,
+            shouldCall995,
+            shouldCall118,
+            clinics: clinicsNearby,
+          }),
+          { headers: { "Content-Type": "application/json" } }
+        );
       } catch (e: any) {
-        console.error("POST / error:", e); // ✅ prints real error in terminal
+        console.error("POST / error:", e);
         return new Response(JSON.stringify({ error: e?.message || String(e) }), {
           status: 500,
           headers: { "Content-Type": "application/json" },
