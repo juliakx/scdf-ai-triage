@@ -351,6 +351,39 @@ const html = `
       min-height: 0;
     }
 
+    .tabs-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: #f9fbf9;
+      color: var(--muted);
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 8px 4px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-radius: 0;
+      min-width: auto;
+    }
+
+    .tab-btn:hover:not(:disabled) {
+      background: #f0f5f0;
+      color: var(--hh-green);
+    }
+
+    .tab-btn.active {
+      background: #fff;
+      color: var(--hh-green);
+      border-bottom-color: var(--hh-green);
+    }
+
     .insights-content {
       flex: 1;
       overflow-y: auto;
@@ -360,6 +393,16 @@ const html = `
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+
+    .insights-content.hidden { display: none; }
+
+    .clinics-placeholder {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+      padding: 24px 12px;
+      line-height: 1.5;
     }
 
     .insight-card {
@@ -495,7 +538,12 @@ const html = `
     </div>
 
     <aside class="insights-pane">
-      <div class="insights-content" id="insightsContent"></div>
+      <div class="tabs-bar">
+        <button type="button" class="tab-btn active" id="tabGuide" onclick="switchTab('guide')">Guide</button>
+        <button type="button" class="tab-btn" id="tabClinics" onclick="switchTab('clinics')">Nearby Clinics</button>
+      </div>
+      <div class="insights-content" id="insightsGuide"></div>
+      <div class="insights-content hidden" id="insightsClinics"></div>
     </aside>
   </div>
 </div>
@@ -507,8 +555,17 @@ const html = `
   const sendBtn = document.getElementById('sendBtn');
   const panelToggle = document.getElementById('panelToggle');
   const workspace = document.querySelector('.workspace');
-  const insightsContent = document.getElementById('insightsContent');
+  const insightsGuide = document.getElementById('insightsGuide');
+  const insightsClinics = document.getElementById('insightsClinics');
   let history = [];
+
+  function switchTab(tab) {
+    const isGuide = tab === 'guide';
+    document.getElementById('tabGuide').classList.toggle('active', isGuide);
+    document.getElementById('tabClinics').classList.toggle('active', !isGuide);
+    insightsGuide.classList.toggle('hidden', !isGuide);
+    insightsClinics.classList.toggle('hidden', isGuide);
+  }
 
   // allow the user to just press enter instead of clicking the button
   function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
@@ -566,7 +623,7 @@ const html = `
       return '<section class="insight-card guide-card ' + color + '"><div class="insight-title">' + escapeHtml(title) + '</div>' + items + '</section>';
     }
 
-    insightsContent.innerHTML = [
+    insightsGuide.innerHTML = [
       guideCard('gc-red', 'Call 995 — Emergency', [
         'Chest pain or tightness',
         'Difficulty breathing / not breathing',
@@ -616,10 +673,13 @@ const html = `
     panelToggle.innerText = workspace.classList.contains('panel-hidden') ? 'Show Panel' : 'Hide Panel';
   }
 
-  // takes the clinic data we get from the backend and displays it in the side panel
+  // takes the clinic data we get from the backend and displays it in the clinics tab
   function renderClinics(clinics) {
-    if (!clinics || clinics.length === 0) return;
     const escapeHtml = function(v) { return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    if (!clinics || clinics.length === 0) {
+      insightsClinics.innerHTML = '<p class="clinics-placeholder">Enter a Patient NRIC above to see nearby clinics in this area.</p>';
+      return;
+    }
     var cards = '';
     for (var i = 0; i < clinics.length; i++) {
       var c = clinics[i];
@@ -632,9 +692,8 @@ const html = `
         + hsgTag
         + '</section>';
     }
-    insightsContent.innerHTML = '<section class="insight-card guide-card gc-green" style="margin-bottom:4px">'
-      + '<div class="insight-title">Nearby Clinics</div>'
-      + '</section>' + cards;
+    insightsClinics.innerHTML = cards;
+    switchTab('clinics');
   }
 
   // main function that talks to our cloudflare worker
@@ -665,7 +724,7 @@ const html = `
       } else {
         const msgDiv = addMessage(data.response, 'bot');
         if (msgDiv) addCallButtons(msgDiv, data.shouldCall995 === true, data.shouldCall118 === true);
-        if (data.clinics && data.clinics.length > 0) renderClinics(data.clinics);
+        renderClinics(data.clinics);
         history.push({ role: "assistant", content: data.response });
       }
     } catch (e) {
@@ -680,6 +739,7 @@ const html = `
   }
 
   renderGuide();
+  renderClinics([]);
 </script>
 </body>
 </html>
@@ -838,14 +898,9 @@ export default {
           }
         }
 
-        // if the issue is minor let us locate some clinics in their neighbourhood
+        // locate nearby clinics for the patient whenever we have their area
         let clinicsNearby: ClinicRow[] = [];
-        const isGPOrSelfCare =
-          urgency.includes("GP") ||
-          urgency.includes("SELF") ||
-          urgency === "Standard";
-
-        if (isGPOrSelfCare && patientArea) {
+        if (patientArea) {
           const clinicResult = await env.DB.prepare(
             `SELECT name, address, telephone, type FROM clinics
              WHERE type LIKE '%Medical%' AND address LIKE ?
@@ -886,9 +941,9 @@ ${clinicSection}
 1. GATHER BEFORE CONCLUDING: If this is an early exchange (exchange ${exchangeCount} of the conversation) and the symptoms are still vague, ask ONE focused follow-up question. Good questions: what specific symptoms, how long, severity (mild/moderate/severe), whether worsening, any other symptoms.
 2. NATURAL FLOW: Do not ask multiple questions at once. One question per reply. Let the conversation build up naturally.
 3. CONCLUDE AFTER ENOUGH INFO: Once you have symptom type, duration, and severity (typically 2–3 exchanges), give a clear triage recommendation including the PAC level.
-4. IMMEDIATE RED FLAGS: If symptoms suggest PAC 1 or 2 at any point (chest pain, difficulty breathing, stroke signs—face drooping/arm weakness/slurred speech, unconscious, severe bleeding), skip all questions and immediately advise calling 995 or going to A&E. Do not delay.
+4. IMMEDIATE RED FLAGS: Only skip assessment and immediately advise calling 995 if the patient has clearly described a severe or high-risk presentation — for example: severe chest pain, pain radiating to the arm or jaw, inability to breathe, confirmed stroke signs (face drooping, arm weakness, slurred speech), unconsciousness, or uncontrolled severe bleeding. If the symptom is mentioned but severity is still unknown (e.g. "I have chest pain" with no further detail), ask ONE targeted follow-up question about severity, duration, and associated symptoms (e.g. shortness of breath, sweating, radiation) before triaging. Do not default to 995 on vague symptom mentions alone.
 5. NEVER instruct the patient to perform CPR or use an AED on themselves — CPR is only ever performed by someone else on a collapsed person. If relevant, tell them to ask a bystander or the 995 dispatcher to guide someone nearby.
-6. CLINIC RECOMMENDATIONS: If the recommendation is PAC 3/4 (GP or self-care) and nearby clinics are listed above, mention 1–3 specific clinic names and addresses.
+6. CLINIC RECOMMENDATIONS: If the recommendation is PAC 3/4 (GP or self-care) and nearby clinics are listed above, mention 1–3 specific clinic names and addresses. IMPORTANT: Do NOT invent or include any hospital, A&E, or clinic addresses that are not in the NEARBY CLINICS section above. For PAC 1/2 emergencies, refer to "the nearest A&E" without specifying an address.
 7. PATIENT CONTEXT: Refer to the patient's known conditions, medications, and allergies where clinically relevant (e.g. if they have asthma and describe breathing issues, flag it specifically).
 8. LANGUAGE: Reply in ${language}.
 9. STYLE: Conversational and concise. 2–4 short paragraphs max. No lengthy headers or bullet-point walls — adapt tone to the message. Do not use gratitude/apology phrases.
@@ -910,22 +965,20 @@ ${clinicSection}
         let shouldCall995 = urgency === "AE";
         let shouldCall118 = urgency === "GP" || urgency === "POLYCLINIC";
 
-        // if the database didn't give us a clear rule we double check what the ai text actually says
-        if (urgency === "Standard") {
-          const lowerText = text.toLowerCase();
-          if (lowerText.includes("call 995") || lowerText.includes("dial 995")) {
-            shouldCall995 = true;
-          } else if (lowerText.includes("call 118") || lowerText.includes("dial 118")) {
-            shouldCall118 = true;
-          }
-        }
+        // always check the ai text for explicit emergency signals, regardless of db rule match
+        const lowerText = text.toLowerCase();
+        const textSays995 = lowerText.includes("call 995") || lowerText.includes("dial 995");
+        const textSays118 = lowerText.includes("call 118") || lowerText.includes("dial 118");
+        if (textSays995) shouldCall995 = true;
+        if (textSays118) shouldCall118 = true;
 
         // suppress buttons when the AI is still mid-conversation (response ends with a question)
+        // but never suppress 995 if the AI explicitly told the user to call 995
         const trimmedText = text.trimEnd();
         const stillAsking = trimmedText.endsWith("?") || trimmedText.endsWith("？");
         if (stillAsking) {
-          shouldCall995 = false;
-          shouldCall118 = false;
+          if (!textSays995) shouldCall995 = false;
+          if (!textSays118) shouldCall118 = false;
         }
 
         return new Response(
