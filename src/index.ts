@@ -12,7 +12,7 @@ const html = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Symptom Checker — Triage Assistant</title>
+  <title>Triage Assistant</title>
   <style>
     :root {
       color-scheme: light;
@@ -624,7 +624,7 @@ const html = `
     }
 
     insightsGuide.innerHTML = [
-      guideCard('gc-red', 'Call 995 — Emergency', [
+      guideCard('gc-red', 'Call 995: Emergency', [
         'Chest pain or tightness',
         'Difficulty breathing / not breathing',
         'Suspected stroke (face drooping, arm weakness, slurred speech)',
@@ -634,7 +634,7 @@ const html = `
         'Major trauma or serious injury',
         'Severe allergic reaction (anaphylaxis)',
       ]),
-      guideCard('gc-orange', 'Call 118 — Non-Emergency Ambulance', [
+      guideCard('gc-orange', 'Call 118: Non-Emergency Ambulance', [
         'Need transport but condition is NOT life-threatening',
         'Stable but unable to self-transport to a clinic',
         'Elderly or immobile patient needing a transfer',
