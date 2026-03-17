@@ -13,9 +13,20 @@ A prototype **Agentic AI triage assistant** that helps users determine the most 
   - Emergency recommendation with **Call 995** option
 - Nearby clinic lookup based on patient location
 
+## Prerequisites
+Make sure the following are installed before moving on to setup:
+
+- **Node.js (v18 or newer)**  
+  https://nodejs.org
+
+- **npm** (comes with Node.js)
+
+- **Cloudflare account**  
+  https://dash.cloudflare.com
+
 ## Setup Instructions
 
-### 1. Install dependencies
+### 1. Clone the repository and install dependencies
 
 ```bash
 npm install
