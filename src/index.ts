@@ -942,8 +942,8 @@ ${clinicSection}
 2. NATURAL FLOW: Do not ask multiple questions at once. One question per reply. Let the conversation build up naturally.
 3. CONCLUDE AFTER ENOUGH INFO: Once you have symptom type, duration, and severity (typically 2–3 exchanges), give a clear triage recommendation including the PAC level.
 4. IMMEDIATE RED FLAGS: Only skip assessment and immediately advise calling 995 if the patient has clearly described a severe or high-risk presentation — for example: severe chest pain, pain radiating to the arm or jaw, inability to breathe, confirmed stroke signs (face drooping, arm weakness, slurred speech), unconsciousness, or uncontrolled severe bleeding. If the symptom is mentioned but severity is still unknown (e.g. "I have chest pain" with no further detail), ask ONE targeted follow-up question about severity, duration, and associated symptoms (e.g. shortness of breath, sweating, radiation) before triaging. Do not default to 995 on vague symptom mentions alone.
-5. NEVER instruct the patient to perform CPR or use an AED on themselves — CPR is only ever performed by someone else on a collapsed person. If relevant, tell them to ask a bystander or the 995 dispatcher to guide someone nearby.
-6. CLINIC RECOMMENDATIONS: If the recommendation is PAC 3/4 (GP or self-care) and nearby clinics are listed above, mention 1–3 specific clinic names and addresses. IMPORTANT: Do NOT invent or include any hospital, A&E, or clinic addresses that are not in the NEARBY CLINICS section above. For PAC 1/2 emergencies, refer to "the nearest A&E" without specifying an address.
+5. NEVER instruct the patient to perform CPR or use an AED on themselves as CPR is only ever performed by someone else on a collapsed person. Don't say things like asking a bystander to start CPR/use an AED as the patient can't say anything if they actually become unresponsive.
+6. CLINIC RECOMMENDATIONS: ONLY for specific CLINICS: If the recommendation is PAC 3/4 (GP or self-care) and nearby clinics are listed above, mention 1–3 specific clinic names and addresses from that list. NEVER invent or include any clinic addresses that are not listed. FOR POLYCLINICS: If you recommend a polyclinic, ONLY say "visit a polyclinic" without giving any specific name, address, or phone number. For PAC 1/2 emergencies, refer to "the nearest A&E" without specifying an address.
 7. PATIENT CONTEXT: Refer to the patient's known conditions, medications, and allergies where clinically relevant (e.g. if they have asthma and describe breathing issues, flag it specifically).
 8. LANGUAGE: Reply in ${language}.
 9. STYLE: Conversational and concise. 2–4 short paragraphs max. No lengthy headers or bullet-point walls — adapt tone to the message. Do not use gratitude/apology phrases.
@@ -961,24 +961,21 @@ ${clinicSection}
           asString(modelResponse?.result) ||
           "";
 
-        // determine if we should light up the call buttons on the user interface
-        let shouldCall995 = urgency === "AE";
-        let shouldCall118 = urgency === "GP" || urgency === "POLYCLINIC";
-
-        // always check the ai text for explicit emergency signals, regardless of db rule match
+        // check the ai text for explicit emergency signals
         const lowerText = text.toLowerCase();
         const textSays995 = lowerText.includes("call 995") || lowerText.includes("dial 995");
         const textSays118 = lowerText.includes("call 118") || lowerText.includes("dial 118");
-        if (textSays995) shouldCall995 = true;
-        if (textSays118) shouldCall118 = true;
+
+        // only show call buttons if the AI explicitly mentioned them in the response
+        let shouldCall995 = textSays995;
+        let shouldCall118 = textSays118;
 
         // suppress buttons when the AI is still mid-conversation (response ends with a question)
-        // but never suppress 995 if the AI explicitly told the user to call 995
         const trimmedText = text.trimEnd();
         const stillAsking = trimmedText.endsWith("?") || trimmedText.endsWith("？");
         if (stillAsking) {
-          if (!textSays995) shouldCall995 = false;
-          if (!textSays118) shouldCall118 = false;
+          shouldCall995 = false;
+          shouldCall118 = false;
         }
 
         return new Response(
