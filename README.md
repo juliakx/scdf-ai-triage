@@ -1,4 +1,4 @@
-<img width="332" height="66" alt="image" src="https://github.com/user-attachments/assets/217d934b-11cd-479b-9797-3eea6a868289" /># Triage Assistant
+# Triage Assistant
 A prototype **Agentic AI triage assistant** that helps users determine the most appropriate care pathway based on their symptoms. The system analyses symptom descriptions, retrieves relevant medical triage rules, and recommends actions such as self-care, visiting a GP or polyclinic, or emergency services.
 
 ## Features
@@ -55,7 +55,7 @@ If you are unable to see a subdomain available, go to 'Domains' and click on 'On
 
 Then navigate back to 'Workers & Pages', and the subdomain should appear. 
 
-### 4. Create a Local D1 Database
+### 5. Create a Local D1 Database
 ```bash
 npx wrangler d1 create triage-db
 ```
@@ -85,8 +85,9 @@ Update wrangler.jsonc with your generated ID.
 }
 ```
 Replace "REPLACE_WITH_YOUR_OWN_DATABASE_ID" with the ID returned when creating the database.
+<img width="719" height="262" alt="image" src="https://github.com/user-attachments/assets/3ea38230-685a-4b7c-8557-22d02ce041fd" />
 
-### 5. Initialise the Database
+### 6. Initialise the Database
 Run the following commands to create tables and seed the database.
 ```bash
 npx wrangler d1 execute triage-db --local --file=./schema.sql
@@ -96,7 +97,7 @@ npx wrangler d1 execute triage-db --local --file=./import_pac.sql
 npx wrangler d1 execute triage-db --local --file=./import_clinics.sql
 ```
 
-### 6. Run the Application
+### 7. Run the Application
 ```bash
 npx wrangler dev
 ```
