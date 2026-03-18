@@ -1,4 +1,4 @@
-# Triage Assistant
+<img width="332" height="66" alt="image" src="https://github.com/user-attachments/assets/217d934b-11cd-479b-9797-3eea6a868289" /># Triage Assistant
 A prototype **Agentic AI triage assistant** that helps users determine the most appropriate care pathway based on their symptoms. The system analyses symptom descriptions, retrieves relevant medical triage rules, and recommends actions such as self-care, visiting a GP or polyclinic, or emergency services.
 
 ## Features
@@ -42,6 +42,18 @@ Log in using your own Cloudflare account.
 ```bash
 npx wrangler login
 ```
+### 4. Register a workers.dev Subdomain (one-time setup)
+Go to:
+```https://dash.cloudflare.com/workers```
+
+Under 'Build', click on 'Compute', then 'Workers & Pages'. Ensure that it shows a subdomain at the bottom (yourname.workers.dev).
+<img width="483" height="381" alt="image" src="https://github.com/user-attachments/assets/06c0d598-7d55-446a-b1ce-0ce64cb60d8f" />
+
+
+If you are unable to see a subdomain available, go to 'Domains' and click on 'Onboard a domain' **(You need not fill in the page)**. 
+<img width="332" height="66" alt="image" src="https://github.com/user-attachments/assets/5558146c-eca4-4a6c-ab99-4ba9c5a00f2b" />
+
+Then navigate back to 'Workers & Pages', and the subdomain should appear. 
 
 ### 4. Create a Local D1 Database
 ```bash
